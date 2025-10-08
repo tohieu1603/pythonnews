@@ -1,0 +1,105 @@
+my_api_project/
+├── .env                          # Environment variables
+├── .env.example                  # Environment template
+├── .gitignore                    # Git ignore
+├── requirements.txt              # Python dependencies
+├── requirements-dev.txt          # Development dependencies
+├── manage.py                     # Django management script
+├── README.md                     # Project documentation
+├── docker-compose.yml            # Docker compose
+├── Dockerfile                    # Docker configuration
+├── pytest.ini                   # Pytest configuration
+├── .pre-commit-config.yaml       # Pre-commit hooks
+│
+├── config/                       # Main configuration
+│   ├── __init__.py
+│   ├── settings/
+│   │   ├── __init__.py
+│   │   ├── base.py              # Base settings
+│   │   ├── development.py       # Development settings
+│   │   ├── production.py        # Production settings
+│   │   └── testing.py           # Testing settings
+│   ├── urls.py                  # Main URL configuration
+│   ├── wsgi.py                  # WSGI application
+│   └── asgi.py                  # ASGI application
+│
+├── api/                         # API core
+│   ├── __init__.py
+│   ├── main.py                  # Main API instance
+│   ├── router.py                # API router registration
+│   ├── middleware.py            # Custom middlewares
+│   ├── exceptions.py            # Global exception handlers
+│   └── dependencies.py          # Common dependencies
+│
+├── apps/                        # API applications
+│   ├── __init__.py
+│   │
+│   ├── authentication/          # Authentication app
+│   │   ├── __init__.py
+│   │   ├── models.py
+│   │   ├── schemas.py           # Pydantic schemas
+│   │   ├── api.py               # API endpoints
+│   │   ├── services.py          # Business logic
+│   │   ├── permissions.py       # Permissions
+│   │   ├── utils.py             # Utilities
+│   │   ├── tests/
+│   │   │   ├── __init__.py
+│   │   │   ├── test_api.py
+│   │   │   ├── test_services.py
+│   │   │   └── test_schemas.py
+│   │   └── migrations/
+│   │
+│   ├── example_module/          # Example module 
+│   │   ├── __init__.py          # Định nghĩa đây là 1 package 
+│   │   ├── models.py            # Định nghĩa ORM model tương ứng với bảng DB (VD: class Product, Order, Customer dùng SQLAlchemy / Tortoise / Django ORM)
+│   │   ├── schemas.py           # Định nghĩa schema cho request/response. Dùng Pydantic. (VD: ProductCreate, ProductRead, OrderUpdate.)
+│   │   ├── api.py               # Khai báo route (endpoint): GET, POST, PUT, DELETE cho module. Gắn APIRouter vào đây.
+│   │   ├── services.py          # Logic nghiệp vụ cốt lõi. (VD: tạo đơn hàng, cập nhật số lượng tồn kho, gửi email xác nhận, gọi external API...)
+│   │   ├── permissions.py       # Xử lý logic phân quyền riêng cho module(VD: Ai được phép sửa thông tin đơn hàng? Chỉ admin mới được xóa...)
+│   │   ├── filters.py           # Tạo filter để truy vấn theo nhiều điều kiện (dùng cho query params). (lọc products theo category, price range, status...)
+│   │   ├── tests/               # Thư mục chứa toàn bộ unit tests liên quan module này.
+│   │   │   ├── __init__.py      
+│   │   │   ├── test_api.py      # Test các endpoint trong api.py:
+│   │   │   ├── test_services.py # Test các hàm trong services.py: logic có đúng không, có lỗi không.
+│   │   │   ├── test_models.py   # Test các class model có đúng định nghĩa, ràng buộc...
+│   │   │   └── factories.py     # Tạo dữ liệu test mẫu dùng cho test: user giả, đơn hàng giả...
+│   │   └── migrations/          # Lưu các file thay đổi schema DB (auto hoặc thủ công).
+│   
+│
+├── core/                        # Core utilities
+│   ├── __init__.py
+│   ├── authentication.py        # Auth backends
+│   ├── permissions.py           # Base permissions
+│   ├── pagination.py            # Pagination classes
+│   ├── schemas.py               # Schema dùng chung cho toàn bộ system 
+│   ├── exceptions.py            # Custom exceptions
+│   ├── validators.py            # Custom validators
+│   ├── utils.py                 # Utility functions
+│   ├── decorators.py            # Custom decorators
+│   └── constants.py             # Application constants
+│
+├── database/                    # Database utilities
+│   ├── __init__.py
+│   ├── managers.py              # Custom managers
+│   ├── mixins.py                # Model mixins
+│   ├── fields.py                # Custom fields
+│   └── fixtures/                # Database fixtures
+│       ├── __init__.py
+│       └── initial_data.json
+│
+│
+└── tests/                       # Integration tests
+    ├── __init__.py
+    ├── conftest.py              # Pytest fixtures
+    ├── test_integration.py
+    ├── test_authentication.py
+    ├── fixtures/
+    │   ├── __init__.py
+    │   └── api_data.json
+    └── utils/
+        ├── __init__.py
+        └── test_helpers.py
+
+
+
+

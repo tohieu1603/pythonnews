@@ -1,0 +1,59 @@
+# --- Python bytecode ---
+__pycache__/
+*.py[cod]
+*$py.class
+
+# --- C extensions ---
+*.so
+
+# --- Virtual environments ---
+.venv/
+venv/
+ENV/
+env/
+
+# --- Build / packaging ---
+build/
+dist/
+*.egg-info/
+.eggs/
+pip-wheel-metadata/
+
+# --- Logs / caches / coverage ---
+*.log
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+
+# --- Django ---
+db.sqlite3
+*.sqlite3
+media/
+staticfiles/
+# Ignore migrations generated per-environment
+# apps/**/migrations/
+# !apps/**/migrations/__init__.py
+
+# --- Environment / secrets ---
+.env
+*.env
+*.env.*
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- IDE / Editor ---
+.idea/
+.vscode/
+*.code-workspace
+
+# --- OS files ---
+.DS_Store
+Thumbs.db
+desktop.ini
+

@@ -1,0 +1,1 @@
+# apps/stock/management/__init__.py

@@ -1,0 +1,13 @@
+Django>=5.0.0
+django-ninja
+psycopg2-binary
+python-dotenv
+vnstock
+PyJWT>=2.8.0
+google-auth>=2.20.0
+requests>=2.31.0
+django-cors-headers
+aiohttp
+django-debug-toolbar>=4.0.0
+sqlparse>=0.5.0
+    
