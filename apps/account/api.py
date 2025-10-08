@@ -311,10 +311,10 @@ def _google_service() -> GoogleOAuthService:
 
 
 @router.get("/google/auth-url", response=GoogleAuthUrlResponse)
-def google_auth_url(request, state: Optional[str] = None):
+def google_auth_url(request, state: str = ""):
     try:
         service = _google_service()
-        url = service.build_authorization_url(state=state)
+        url = service.build_authorization_url(state=state if state else None)
         return GoogleAuthUrlResponse(auth_url=url)
     except GoogleOAuthError as exc:
         return _build_error(str(exc), status=500)
