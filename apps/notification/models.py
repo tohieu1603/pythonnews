@@ -41,6 +41,17 @@ class UserEndpoint(models.Model):
         blank=True,
         help_text='Thông tin phụ: username, OA id...'
     )
+    verification_code = models.CharField(
+        max_length=12,
+        null=True,
+        blank=True,
+        help_text='Mã OTP xác thực (mã plaintext hoặc hashed)'
+    )
+    verification_expires_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        help_text='Thời gian hết hạn của mã xác thực'
+    )
     is_primary = models.BooleanField(
         default=False,
         help_text='Đánh dấu endpoint mặc định'

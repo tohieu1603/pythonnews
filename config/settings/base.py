@@ -98,7 +98,7 @@ DATABASES = {
             # Limit số connections per process
             'connect_timeout': 10,
             'options': '-c statement_timeout=30000',
-            "options": "-c search_path=togogonews"
+            #"options": "-c search_path=togogonews"
            # aaa
         },
     }
@@ -209,7 +209,6 @@ EMAIL_BACKEND = os.getenv(
     'EMAIL_BACKEND',
     'django.core.mail.backends.console.EmailBackend'  # Print to console by default
 )
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@pynews.com')
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_USE_TLS = _env_bool('EMAIL_USE_TLS', 'True')

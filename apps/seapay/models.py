@@ -839,6 +839,7 @@ class PayUserSymbolLicense(models.Model):
         blank=True,
         db_comment="Thời điểm hết hạn; null = trọn đời"
     )
+    updated_at = models.DateTimeField(auto_now=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

@@ -33,3 +33,13 @@ class SymbolAutoRenewAttemptResponse(Schema):
     wallet_balance_snapshot: Optional[Decimal] = None
     order_id: Optional[str] = None
     ran_at: str
+
+
+class EnableAutoRenewRequest(Schema):
+    symbol_id: int
+    price: Optional[Decimal] = None
+    cycle_days: Optional[int] = None
+    payment_method: str = "wallet"
+    grace_period_hours: Optional[int] = None
+    retry_interval_minutes: Optional[int] = None
+    max_retry_attempts: Optional[int] = None

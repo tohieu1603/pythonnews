@@ -9,6 +9,7 @@ from core.jwt_auth import JWTAuth
 from apps.setting.schemas import (
     SymbolAutoRenewAttemptResponse,
     SymbolAutoRenewSubscriptionResponse,
+    EnableAutoRenewRequest,
 )
 from apps.setting.services.subscription_service import SymbolAutoRenewService
 
@@ -22,6 +23,27 @@ def list_symbol_subscriptions(request: HttpRequest):
     user = request.auth
     subscriptions = auto_renew_service.list_user_subscriptions(user)
     return [SymbolAutoRenewSubscriptionResponse(**subscription) for subscription in subscriptions]
+
+@router.post("/symbol/subscriptions/enable", response=SymbolAutoRenewSubscriptionResponse, auth=JWTAuth())
+@transaction.atomic
+def enable_symbol_subscription(request: HttpRequest, payload: EnableAutoRenewRequest):
+    """Enable or create auto-renew subscription for a given symbol."""
+    user = request.auth
+    try:
+        payment_method = (payload.payment_method or "").lower() or "wallet"
+        subscription = auto_renew_service.enable_subscription(
+            user=user,
+            symbol_id=payload.symbol_id,
+            price=payload.price,
+            cycle_days=payload.cycle_days,
+            payment_method=payment_method,
+            grace_period_hours=payload.grace_period_hours,
+            retry_interval_minutes=payload.retry_interval_minutes,
+            max_retry_attempts=payload.max_retry_attempts,
+        )
+        return SymbolAutoRenewSubscriptionResponse(**subscription)
+    except ValueError as exc:
+        raise HttpError(400, str(exc))
 
 
 @router.post("/symbol/subscriptions/{subscription_id}/pause", response=SymbolAutoRenewSubscriptionResponse, auth=JWTAuth())

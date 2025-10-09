@@ -15,9 +15,11 @@ from apps.setting.models import (
 )
 from apps.seapay.models import (
     PaySymbolOrder,
+    PaySymbolOrderItem,
     PayUserSymbolLicense,
     PayWallet,
     PaymentMethod,
+    LicenseStatus,
 )
 
 User = get_user_model()
@@ -229,6 +231,156 @@ class SymbolAutoRenewService:
                 )
                 subscription.refresh_from_db()
                 return self._serialize_subscription(subscription)
+
+        return self._serialize_subscription(subscription)
+
+    def enable_subscription(
+        self,
+        user: User,
+        symbol_id: int,
+        *,
+        price: Optional[Decimal] = None,
+        cycle_days: Optional[int] = None,
+        payment_method: str = PaymentMethod.WALLET,
+        grace_period_hours: Optional[int] = None,
+        retry_interval_minutes: Optional[int] = None,
+        max_retry_attempts: Optional[int] = None,
+    ) -> Dict:
+        if payment_method != PaymentMethod.WALLET:
+            raise ValueError("Auto-renew currently only supports wallet payment method")
+
+        license_obj = (
+            PayUserSymbolLicense.objects.filter(
+                user=user,
+                symbol_id=symbol_id,
+                status=LicenseStatus.ACTIVE,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if not license_obj:
+            raise ValueError("Active license is required to enable auto-renew")
+
+        if license_obj.end_at is None:
+            raise ValueError("Lifetime license does not require auto-renew")
+
+        # Determine defaults from latest order item if available
+        item = None
+        if license_obj.order_id:
+            item = (
+                PaySymbolOrderItem.objects.filter(order=license_obj.order, symbol_id=symbol_id)
+                .first()
+            )
+        if not item:
+            item = (
+                PaySymbolOrderItem.objects.filter(order__user=user, symbol_id=symbol_id)
+                .order_by("-order__created_at")
+                .first()
+            )
+
+        if price is None:
+            if item:
+                price = item.auto_renew_price or item.price
+            else:
+                raise ValueError("price is required when no historical order item is found")
+        price = Decimal(str(price))
+        if price <= 0:
+            raise ValueError("price must be greater than zero")
+
+        if cycle_days is None:
+            if item and item.cycle_days_override:
+                cycle_days = int(item.cycle_days_override)
+            elif item and item.license_days:
+                cycle_days = int(item.license_days)
+            else:
+                cycle_days = self.DEFAULT_CYCLE_DAYS
+        if cycle_days <= 0:
+            raise ValueError("cycle_days must be positive")
+
+        subscription = (
+            SymbolAutoRenewSubscription.objects.filter(user=user, symbol_id=symbol_id)
+            .order_by("-created_at")
+            .first()
+        )
+
+        now = timezone.now()
+        resolved_grace = (
+            grace_period_hours
+            if grace_period_hours is not None
+            else (subscription.grace_period_hours if subscription else SymbolAutoRenewSubscription._meta.get_field("grace_period_hours").default)
+        )
+        resolved_retry_interval = (
+            retry_interval_minutes
+            if retry_interval_minutes is not None
+            else (subscription.retry_interval_minutes if subscription else SymbolAutoRenewSubscription._meta.get_field("retry_interval_minutes").default)
+        )
+        resolved_max_retry = (
+            max_retry_attempts
+            if max_retry_attempts is not None
+            else (subscription.max_retry_attempts if subscription else SymbolAutoRenewSubscription._meta.get_field("max_retry_attempts").default)
+        )
+
+        next_billing_at = license_obj.end_at - timedelta(hours=resolved_grace or 0)
+        if next_billing_at <= now:
+            next_billing_at = license_obj.end_at
+
+        metadata_update = {
+            "enabled_via_api": True,
+            "enabled_at": now.isoformat(),
+        }
+
+        if subscription:
+            metadata = subscription.metadata or {}
+            metadata.update(metadata_update)
+            subscription.status = AutoRenewStatus.ACTIVE
+            subscription.cycle_days = cycle_days
+            subscription.price = price
+            subscription.payment_method = payment_method
+            subscription.next_billing_at = next_billing_at
+            subscription.last_order = license_obj.order
+            subscription.current_license = license_obj
+            subscription.consecutive_failures = 0
+            subscription.grace_period_hours = resolved_grace
+            subscription.retry_interval_minutes = resolved_retry_interval
+            subscription.max_retry_attempts = resolved_max_retry
+            subscription.metadata = metadata
+            subscription.save(
+                update_fields=[
+                    "status",
+                    "cycle_days",
+                    "price",
+                    "payment_method",
+                    "next_billing_at",
+                    "last_order",
+                    "current_license",
+                    "consecutive_failures",
+                    "grace_period_hours",
+                    "retry_interval_minutes",
+                    "max_retry_attempts",
+                    "metadata",
+                    "updated_at",
+                ]
+            )
+        else:
+            subscription = SymbolAutoRenewSubscription.objects.create(
+                user=user,
+                symbol_id=symbol_id,
+                status=AutoRenewStatus.ACTIVE,
+                cycle_days=cycle_days,
+                price=price,
+                payment_method=payment_method,
+                last_order=license_obj.order,
+                current_license=license_obj,
+                next_billing_at=next_billing_at,
+                grace_period_hours=resolved_grace,
+                retry_interval_minutes=resolved_retry_interval,
+                max_retry_attempts=resolved_max_retry,
+                metadata=metadata_update,
+            )
+
+        if license_obj.subscription_id != subscription.subscription_id:
+            license_obj.subscription = subscription
+            license_obj.save(update_fields=["subscription", "updated_at"])
 
         return self._serialize_subscription(subscription)
 
@@ -481,4 +633,3 @@ class SymbolAutoRenewService:
                 "updated_at",
             ]
         )
-
