@@ -63,10 +63,10 @@ class QueryFinancialService:
         except (ValueError, TypeError):
             return "N/A"
     
-    def get_cash_flow_statements(self, symbol_id: int, limit: int = 10) -> List[CashFlowOut]:
+    def get_cash_flow_statements(self, symbol_id: int) -> List[CashFlowOut]:
         """Get cash flow statements for a symbol"""
         try:
-            qs = qs_cash_flow(symbol_id, limit)
+            qs = qs_cash_flow(symbol_id)
             if not qs.exists():
                 raise HttpError(404, f"No cash flow statements found for symbol_id={symbol_id}")
             

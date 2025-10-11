@@ -230,9 +230,9 @@ def import_all_complete(request, force_update: bool = False):
 
 
 @router.get("/cashflows/{symbol_id}", response=List[CashFlowOut])
-def get_cashflows(request, symbol_id: int, limit: int = 10):
+def get_cashflows(request, symbol_id: int):
     service = QueryFinancialService()
-    return service.get_cash_flow_statements(symbol_id, limit)
+    return service.get_cash_flow_statements(symbol_id)
 @router.get("/incomes/{symbol_id}", response=List[InComeOut])
 def get_incomes(request, symbol_id: int):
     service = QueryFinancialService()
