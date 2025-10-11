@@ -43,13 +43,14 @@ def safe_fillna(df: pd.DataFrame, value: Any = None, method: str = None) -> pd.D
             if method:
                 # Handle deprecated method parameter
                 if method == 'ffill':
-                    return df.ffill()
+                    result = df.ffill()
                 elif method == 'bfill':
-                    return df.bfill()
+                    result = df.bfill()
                 else:
-                    return df.fillna(value=value)
+                    result = df.fillna(value=value)
             else:
-                return df.fillna(value=value)
+                result = df.fillna(value=value)
+        return result.infer_objects(copy=False)
     except Exception:
         return df
 
@@ -83,6 +84,11 @@ def suppress_pandas_warnings():
     """
     Suppress common pandas warnings that are not actionable
     """
+    try:
+        pd.set_option("future.no_silent_downcasting", True)
+    except Exception:
+        pass
+
     warnings.filterwarnings("ignore", message=".*applymap.*", category=FutureWarning)
     warnings.filterwarnings("ignore", message=".*method.*", category=FutureWarning)
     warnings.filterwarnings("ignore", message=".*iloc.*", category=FutureWarning)
