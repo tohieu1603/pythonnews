@@ -121,7 +121,7 @@ class VNStockClient:
         """
         Lấy danh sách các mã ở sàn HSX (mặc định).
         Nếu truyền sàn khác sẽ lọc theo sàn đó.
-        Chỉ lấy mã có đúng 3 ký tự chữ cái và bắt đầu bằng 'VN'.
+        Chỉ lấy các mã là chữ và có đúng 3 ký tự.
         """
         listing = Listing()
         df = listing.symbols_by_exchange()
@@ -131,8 +131,7 @@ class VNStockClient:
         # Chỉ lấy các mã gồm toàn chữ cái
         df = df[df["symbol"].str.isalpha()]
 
-        # Chỉ lấy các mã có đúng 3 ký tự và bắt đầu bằng 'VN'
-        df = df[df["symbol"].str.upper().str.startswith("VN")]
+        # Chỉ lấy các mã có đúng 3 ký tự
         df = df[df["symbol"].str.len() == 3]
 
         for _, row in df.iterrows():
