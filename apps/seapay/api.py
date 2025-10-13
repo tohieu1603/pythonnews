@@ -4,9 +4,8 @@ from typing import List, Optional
 
 from django.http import HttpRequest, JsonResponse
 from django.utils import timezone
-from ninja import Router
+from ninja import Router, Query
 from ninja.errors import HttpError
-
 from core.jwt_auth import JWTAuth
 
 from apps.seapay.models import OrderStatus, PaymentStatus, PaySymbolOrder
@@ -19,11 +18,13 @@ from apps.seapay.schemas import (
     FallbackCallbackResponse,
     PaymentIntentOut,
     PaginatedPaymentIntent,
+    PaymentIntentListQuery,
     UserResponse,
     CreateWalletTopupRequest,
     CreateWalletTopupResponse,
     WalletTopupStatusResponse,
     SepayWebhookRequest,
+    SymbolOrderHistoryRequest,
     SepayWebhookResponse,
     CreateSymbolOrderRequest,
     CreateSymbolOrderResponse,
@@ -32,7 +33,9 @@ from apps.seapay.schemas import (
     SymbolAccessCheckResponse,
     SymbolOrderItemResponse,
     UserSymbolLicenseResponse,
+    PaginatedUserSymbolLicenses,
     PaginatedSymbolOrderHistory,
+    UserSymbolLicensesQuery,
 )
 from apps.seapay.services.payment_service import PaymentService
 from apps.seapay.services.wallet_topup_service import WalletTopupService
@@ -155,29 +158,23 @@ def get_wallet(request: HttpRequest):
 
 @router.get("/payments/user", response=PaginatedPaymentIntent, auth=JWTAuth())
 def list_user_payments(
-    request: HttpRequest,
-    page: int = 1,
-    limit: int = 10,
-    search: Optional[str] = None,
-    status: Optional[str] = None,
-    purpose: Optional[str] = None,
+    request: HttpRequest, query: PaymentIntentListQuery = Query(None)
 ):
     user = request.auth
+    q = (query or PaymentIntentListQuery()).normalize()
 
     valid_statuses = {choice for choice, _ in PaymentStatus.choices}
-    resolved_status = status.strip() if isinstance(status, str) else None
-    if not resolved_status:
-        resolved_status = PaymentStatus.SUCCEEDED
-    elif resolved_status not in valid_statuses:
+    resolved_status = q.status or PaymentStatus.SUCCEEDED
+    if resolved_status not in valid_statuses:
         raise HttpError(400, "Invalid status")
 
     result = payment_service.get_paginated_payment_intents(
         user=user,
-        page=page,
-        limit=limit,
-        search=search,
+        page=q.page,
+        limit=q.limit,
+        search=q.search,
         status=resolved_status,
-        purpose=purpose,
+        purpose=q.purpose,
     )
 
     intents: List[PaymentIntentOut] = []
@@ -370,39 +367,31 @@ def create_symbol_order_endpoint(request: HttpRequest, data: CreateSymbolOrderRe
         shortage=shortage,
     )
 
-
-@router.get("/symbol/orders/history/", response=PaginatedSymbolOrderHistory, auth=JWTAuth())
 @router.get("/symbol/orders/history", response=PaginatedSymbolOrderHistory, auth=JWTAuth())
 def get_order_history(
     request: HttpRequest,
-    page: int = 1,
-    limit: int = 20,
-    status: Optional[str] = None,
+    query: SymbolOrderHistoryRequest = Query(None),
 ):
     user = request.auth
 
-    if limit > 100:
-        limit = 100
-    if limit <= 0:
-        limit = 20
-    if page <= 0:
-        page = 1
+    q = (query or SymbolOrderHistoryRequest()).normalize()
+    page = q.page
+    limit = q.limit
+    status = q.status
 
     if status and status not in {choice for choice, _ in OrderStatus.choices}:
-        raise HttpError(400, "Invalid status")
-
+        raise HttpError(400, "Invalid status filter")
+    for item in OrderStatus.choices:
+        if item[0] == status:
+            status = item[0]
+            break
     try:
-        orders_data = symbol_purchase_service.get_order_history(
-            user=user,
-            page=page,
-            limit=limit,
-            status=status,
-        )
-    except Exception as exc:  # pragma: no cover - defensive
+        order_data = symbol_purchase_service.get_order_history(user, page, limit, status)
+
+    except Exception as exc: 
         raise HttpError(500, f"Failed to get order history: {exc}")
 
-    return PaginatedSymbolOrderHistory(**orders_data)
-
+    return PaginatedSymbolOrderHistory(**order_data)
 
 @router.post("/symbol/orders/{order_id}/pay-wallet", response=ProcessWalletPaymentResponse, auth=JWTAuth())
 def process_wallet_payment(request: HttpRequest, order_id: str):
@@ -444,11 +433,26 @@ def check_symbol_access(request: HttpRequest, symbol_id: int):
         raise HttpError(500, f"Failed to check access: {exc}")
 
 
-@router.get("/symbol/licenses", response=List[UserSymbolLicenseResponse], auth=JWTAuth())
-def get_user_symbol_licenses(request: HttpRequest, page: int = 1, limit: int = 20):
+@router.get("/symbol/licenses", response=PaginatedUserSymbolLicenses, auth=JWTAuth())
+def get_user_symbol_licenses(
+    request: HttpRequest, query: UserSymbolLicensesQuery = Query(None)
+):
+    q = (query or UserSymbolLicensesQuery()).normalize()
     try:
-        licenses_data = symbol_purchase_service.get_user_symbol_licenses(request.auth, page, limit)
-        return [UserSymbolLicenseResponse(**license) for license in licenses_data["results"]]
+        licenses_data = symbol_purchase_service.get_user_symbol_licenses(
+            request.auth, q.page, q.limit
+        )
+        results = [
+            UserSymbolLicenseResponse(**license)
+            for license in licenses_data["results"]
+        ]
+        return PaginatedUserSymbolLicenses(
+            results=results,
+            total=licenses_data["total"],
+            page=licenses_data["page"],
+            limit=licenses_data["limit"],
+            total_pages=licenses_data["total_pages"],
+        )
     except Exception as exc: 
         raise HttpError(500, f"Failed to get licenses: {exc}")
 

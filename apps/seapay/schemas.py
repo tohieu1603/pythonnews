@@ -1,8 +1,8 @@
-from ninja import Schema
-from decimal import Decimal
-from typing import Optional, List
 from datetime import datetime
+from decimal import Decimal
+from typing import Annotated, List, Optional
 
+from ninja import Field, Schema
 
 class UserResponse(Schema):
     id: int
@@ -11,6 +11,16 @@ class UserResponse(Schema):
     last_name: Optional[str] = None
     is_active: bool
     date_joined: datetime
+
+
+class PaginationQuery(Schema):
+    page: Annotated[int, Field(ge=1)] = 1
+    limit: Annotated[int, Field(ge=1, le=100)] = 20
+
+    def normalize(self):
+        self.page = max(1, self.page)
+        self.limit = min(100, max(1, self.limit))
+        return self
 
 
 # Request DTOs
@@ -118,6 +128,25 @@ class PaginatedPaymentIntent(Schema):
     results: List[PaymentIntentOut]
 
 
+class PaymentIntentListQuery(PaginationQuery):
+    limit: Annotated[int, Field(ge=1, le=100)] = 10
+    search: Optional[str] = None
+    status: Optional[str] = None
+    purpose: Optional[str] = None
+
+    def normalize(self):
+        super().normalize()
+        if isinstance(self.search, str):
+            self.search = self.search.strip() or None
+        if isinstance(self.status, str):
+            cleaned = self.status.strip().lower()
+            self.status = cleaned or None
+        if isinstance(self.purpose, str):
+            cleaned = self.purpose.strip().lower()
+            self.purpose = cleaned or None
+        return self
+
+
 # Wallet Topup Schemas
 class CreateWalletTopupRequest(Schema):
     amount: Decimal
@@ -197,7 +226,7 @@ class SymbolOrderItemRequest(Schema):
 
 class CreateSymbolOrderRequest(Schema):
     items: List[SymbolOrderItemRequest]
-    payment_method: str = "wallet"  # wallet | sepay_transfer
+    payment_method: str = "wallet"  
     description: Optional[str] = ""
 
 
@@ -280,6 +309,28 @@ class UserSymbolLicenseResponse(Schema):
     payment_method: Optional[str] = None
     order_total_amount: Optional[float] = None
 
+
+class UserSymbolLicensesQuery(PaginationQuery):
+    pass
+
+
+class PaginatedUserSymbolLicenses(Schema):
+    results: List[UserSymbolLicenseResponse]
+    total: int
+    page: int
+    limit: int
+    total_pages: int
+
+
+class SymbolOrderHistoryRequest(PaginationQuery):
+    status: Annotated[Optional[str], Field(max_length=20)] = None
+
+    def normalize(self):
+        super().normalize()
+        if isinstance(self.status, str):
+            s = self.status.strip().lower()
+            self.status = s if s else None
+        return self
 
 class SymbolOrderHistoryResponse(Schema):
     order_id: str

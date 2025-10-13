@@ -29,7 +29,6 @@ logger = logging.getLogger(__name__)
 
 
 class SymbolPurchaseService:
-    """Handle symbol purchase flows including wallet and SePay payments."""
 
     def __init__(self) -> None:
         self.payment_service = PaymentService()
