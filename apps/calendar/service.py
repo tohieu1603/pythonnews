@@ -339,17 +339,27 @@ def _request_calendar_span(args: argparse.Namespace, start_date: date, end_date:
     return parse_calendar_html(html)
 
 
-def _fetch_calendar_span(args: argparse.Namespace, start_date: date, end_date: date) -> List[EconomicEvent]:
+def _fetch_calendar_span(args: argparse.Namespace, start_date: date, end_date: date, max_retries: int = 3) -> List[EconomicEvent]:
     events = _request_calendar_span(args, start_date, end_date)
-    if start_date == end_date:
+    if start_date == end_date or max_retries <= 0:
         return events
     expected = _expected_dates(start_date, end_date)
     observed = _extract_event_dates(events)
     missing = sorted(expected - observed)
     if not missing:
         return events
+    
+    # Giảm số lần retry và kiểm tra để tránh infinite recursion
     for missing_start, missing_end in _group_missing_ranges(missing):
-        events.extend(_fetch_calendar_span(args, missing_start, missing_end))
+        # Chỉ retry nếu range còn hợp lý và không bị lặp vô tận
+        if missing_end >= missing_start and (missing_end - missing_start).days <= 30:  # Giới hạn 30 ngày
+            try:
+                additional_events = _fetch_calendar_span(args, missing_start, missing_end, max_retries - 1)
+                events.extend(additional_events)
+            except (requests.RequestException, RecursionError, Exception) as e:
+                # Log lỗi và tiếp tục với events hiện có thay vì crash
+                print(f"Warning: Failed to fetch events for range {missing_start} to {missing_end}: {e}")
+                continue
     return events
 
 
@@ -390,15 +400,47 @@ def _event_sort_key(event: EconomicEvent) -> tuple[str, tuple[int, int, int], st
 
 
 def fetch_calendar(args: argparse.Namespace, start_date: date, end_date: date) -> List[EconomicEvent]:
-    events = _fetch_calendar_span(args, start_date, end_date)
-    events = _deduplicate_events(events)
-    if args.skip_holidays:
-        events = [event for event in events if event.category != "holiday"]
-    return events
+    # Kiểm tra date range hợp lý trước khi fetch
+    if end_date < start_date:
+        raise ValueError("End date must be greater than or equal to start date")
+    
+    # Giới hạn range để tránh quá tải
+    max_days = 365
+    if (end_date - start_date).days > max_days:
+        raise ValueError(f"Date range too large. Maximum allowed: {max_days} days")
+    
+    try:
+        events = _fetch_calendar_span(args, start_date, end_date)
+        events = _deduplicate_events(events)
+        if args.skip_holidays:
+            events = [event for event in events if event.category != "holiday"]
+        return events
+    except Exception as e:
+        print(f"Error fetching calendar: {e}")
+        return []
 
 
 
 def fetch_events(options: CalendarFetchOptions) -> List[EconomicEvent]:
+    """
+    Fetch events với caching support để giảm external API calls
+    """
+    from .cache_service import SmartCacheService
+    
+    # Kiểm tra cache trước
+    cached_events = SmartCacheService.get_cached_events(
+        date_from=options.date_from,
+        date_to=options.date_to,
+        time_zone=options.time_zone,
+        importance=options.importance,
+        countries=options.countries,
+        skip_holidays=options.skip_holidays
+    )
+    
+    if cached_events is not None:
+        return cached_events
+    
+    # Không có cache, fetch từ external API
     namespace = SimpleNamespace(
         time_zone=options.time_zone,
         time_filter=options.time_filter,
@@ -406,7 +448,22 @@ def fetch_events(options: CalendarFetchOptions) -> List[EconomicEvent]:
         countries=options.countries,
         skip_holidays=options.skip_holidays,
     )
-    return fetch_calendar(namespace, options.date_from, options.date_to)
+    
+    events = fetch_calendar(namespace, options.date_from, options.date_to)
+    
+    # Cache kết quả nếu phù hợp
+    if SmartCacheService.should_use_cache(options.date_from, options.date_to):
+        SmartCacheService.cache_events(
+            events=events,
+            date_from=options.date_from,
+            date_to=options.date_to,
+            time_zone=options.time_zone,
+            importance=options.importance,
+            countries=options.countries,
+            skip_holidays=options.skip_holidays
+        )
+    
+    return events
 
 
 def output_json(events: List[EconomicEvent], output_path: Optional[str] = None) -> None:

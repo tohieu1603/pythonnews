@@ -98,7 +98,7 @@ DATABASES = {
             # Limit số connections per process
             'connect_timeout': 10,
             'options': '-c statement_timeout=30000',
-            #"options": "-c search_path=togogonews"
+            "options": "-c search_path=togogonews"
            # aaa
         },
     }
@@ -201,6 +201,10 @@ CACHES = {
         }
     }
 }
+
+# Calendar Cache Settings
+USE_CALENDAR_CACHE = _env_bool("USE_CALENDAR_CACHE", "True")
+CALENDAR_CACHE_TIMEOUT = int(os.getenv("CALENDAR_CACHE_TIMEOUT", "900"))  # 15 minutes default
 
 # =========================
 # EMAIL SETTINGS
