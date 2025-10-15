@@ -19,7 +19,7 @@ def env_list(key: str, default: str = "") -> list[str]:
 
 SECRET_KEY = os.getenv("SECRET_KEY", "dev-insecure-secret-key")
 
-DEBUG = _env_bool("DEBUG", "True")
+DEBUG = _env_bool("DEBUG", "False")
 
 ALLOWED_HOSTS = env_list(
     "ALLOWED_HOSTS",

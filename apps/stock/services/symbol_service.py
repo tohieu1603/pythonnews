@@ -6,7 +6,7 @@ from django.shortcuts import get_object_or_404
 from vnstock import Listing
 from ninja.errors import HttpError
 from apps.stock.clients.vnstock_client import VNStockClient
-from apps.stock.models import Symbol, Events
+from apps.stock.models import Symbol, Events, News
 from apps.stock.repositories import repositories as repo
 from apps.stock.services.mappers import DataMappers
 from apps.stock.services.industry_resolver import IndustryResolver
@@ -124,6 +124,7 @@ class SymbolService:
                     has_shareholders = has_company and ShareHolder.objects.filter(company=symbol.company).exists()
                     has_officers = has_company and Officers.objects.filter(company=symbol.company).exists()
                     has_events = has_company and Events.objects.filter(company=symbol.company).exists()
+                    has_news = has_company and News.objects.filter(company=symbol.company).exists()
                     has_subs = has_company and SubCompany.objects.filter(parent=symbol.company).exists()
 
                     # Process if missing any data
@@ -241,6 +242,15 @@ class SymbolService:
                     symbol_detail["success"] = True
                     result["symbols_processed"] += 1
                     print(f"  ✓ COMPLETED: All tables imported successfully")
+
+                    print(f"  Import News...", end=" ", flush=True)
+                    news_df = bundle.get("news_df")
+                    if news_df is not None and not news_df.empty:
+                        news_rows = DataMappers.map_news(news_df)
+                        repo.upsert_news(company, news_rows)
+                        print(f"✓ SUCCESS ({len(news_rows)} records)")
+                    else:
+                        print(f"⊘ SKIPPED (no data)")
 
                 except Exception as e:
                     error_msg = f"Import error: {str(e)}"
