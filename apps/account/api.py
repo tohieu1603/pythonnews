@@ -240,10 +240,10 @@ class GoogleOAuthService:
     def __init__(self, config: GoogleOAuthConfig):
         self.config = config
 
-    def build_authorization_url(self, *, state: Optional[str] = None, include_prompt: bool = True) -> str:
+    def build_authorization_url(self, *, state: Optional[str] = None, include_prompt: bool = True, redirect_uri: Optional[str] = None) -> str:
         params: Dict[str, Any] = {
             "client_id": self.config.client_id,
-            "redirect_uri": self.config.redirect_uri,
+            "redirect_uri": redirect_uri or self.config.redirect_uri,
             "response_type": "code",
             "scope": self.config.scopes,
             "access_type": self.config.access_type,
@@ -311,10 +311,13 @@ def _google_service() -> GoogleOAuthService:
 
 
 @router.get("/google/auth-url", response=GoogleAuthUrlResponse)
-def google_auth_url(request, state: str = ""):
+def google_auth_url(request, state: str = "", redirect_uri: str = ""):
     try:
         service = _google_service()
-        url = service.build_authorization_url(state=state if state else None)
+        url = service.build_authorization_url(
+            state=state if state else None,
+            redirect_uri=redirect_uri if redirect_uri else None
+        )
         return GoogleAuthUrlResponse(auth_url=url)
     except GoogleOAuthError as exc:
         return _build_error(str(exc), status=500)

@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "corsheaders",
     "api",
     "apps.stock.apps.StockConfig",
+    "apps.bots.apps.BotsConfig",
     "apps.account",
     "apps.calculate",
     "apps.calendar.apps.CalendarConfig",

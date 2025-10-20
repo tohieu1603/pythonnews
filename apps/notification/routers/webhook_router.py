@@ -2,11 +2,13 @@
 from ninja import Router
 from datetime import datetime
 import logging
-import requests
+from decimal import Decimal, InvalidOperation
+from django.utils import timezone
 from apps.notification.schemas import TradingViewWebhookSchema
 from apps.notification.services.notification_utils import send_symbol_signal_to_subscribers
 from apps.notification.repositories.notification_repository import WebhookLogRepository
 from apps.notification.models import WebhookSource
+from apps.bots.models import Bot, Trade
 
 logger = logging.getLogger('app')
 
@@ -41,13 +43,14 @@ def tradingview_webhook(request, payload: TradingViewWebhookSchema):
             )
             return 404, {"error": f"Symbol {symbol_name} not found in database"}
 
-        timestamp_str = datetime.fromtimestamp(payload.CheckDate / 1000).strftime('%Y-%m-%d %H:%M:%S')
+        entry_datetime = datetime.fromtimestamp(payload.CheckDate / 1000, tz=timezone.utc)
+        local_entry_datetime = entry_datetime.astimezone(timezone.get_current_timezone())
+        timestamp_str = local_entry_datetime.strftime('%Y-%m-%d %H:%M:%S')
 
         description_parts = [
             f"Bot: {payload.botName}",
             f"Action: {payload.Action}",
         ]
-
         if payload.Direction:
             description_parts.append(f"Direction: {payload.Direction}")
         if payload.TP:
@@ -62,7 +65,7 @@ def tradingview_webhook(request, payload: TradingViewWebhookSchema):
         description = " | ".join(description_parts)
 
         metadata = {
-            "raw_payload": payload.dict(),  
+            "raw_payload": payload.dict(),
             "trans_id": payload.TransId,
             "bot_name": payload.botName,
             "action": payload.Action,
@@ -82,14 +85,43 @@ def tradingview_webhook(request, payload: TradingViewWebhookSchema):
             "distance_to_tp": payload.DistanceToTP,
             "volatility_adjusted_profit": payload.VolatilityAdjustedProfit,
         }
-        url = "https://backtest.togogo.vn/api/v10/BackTest/wh"
-        response = requests.post(
-            url,
-            json=metadata,
-            headers={"Content-Type": "application/json"},
-            timeout=10
+
+        def to_decimal(value):
+            if value is None:
+                return None
+            try:
+                return Decimal(str(value))
+            except (InvalidOperation, TypeError, ValueError):
+                logger.warning("Unable to convert value %s to Decimal", value)
+                return None
+
+        bot, _ = Bot.objects.get_or_create(
+            name=payload.botName,
+            symbol=symbol
         )
-        print("Posted to backtest.togogo.vn, response:", response.status_code, response.text)
+
+        trade = Trade.objects.create(
+            bot=bot,
+            trans_id=payload.TransId,
+            trade_type=payload.Type,
+            direction=payload.Direction,
+            price=to_decimal(payload.Price),
+            entry_date=entry_datetime,
+            exit_price=to_decimal(payload.ExitPrice),
+            stop_loss=to_decimal(payload.SL),
+            take_profit=to_decimal(payload.TP),
+            position_size=payload.PositionSize,
+            profit=payload.Profit,
+            max_duration=payload.TradeDuration,
+            win_loss_status=payload.WinLossStatus,
+            action=payload.Action,
+        )
+
+        metadata.update({
+            "trade_id": str(trade.id),
+            "bot_id": bot.id,
+            "entry_date": entry_datetime.isoformat(),
+        })
         result = send_symbol_signal_to_subscribers(
             symbol_id=symbol.id,
             symbol_name=symbol_name,
@@ -107,7 +139,9 @@ def tradingview_webhook(request, payload: TradingViewWebhookSchema):
             "total_users": result['total_users'],
             "sent_count": result['sent_count'],
             "failed_count": result['failed_count'],
-            "message": f"Sent to {result['sent_count']} users"
+            "message": f"Sent to {result['sent_count']} users",
+            "trade_id": str(trade.id),
+            "bot_id": bot.id,
         }
 
         webhook_repo.create(
