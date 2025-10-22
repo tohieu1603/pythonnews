@@ -1,6 +1,6 @@
 """Router cho TradingView Webhook"""
 from ninja import Router
-from datetime import datetime
+from datetime import datetime, timezone as dt_timezone
 import logging
 from decimal import Decimal, InvalidOperation
 from django.utils import timezone
@@ -8,7 +8,7 @@ from apps.notification.schemas import TradingViewWebhookSchema
 from apps.notification.services.notification_utils import send_symbol_signal_to_subscribers
 from apps.notification.repositories.notification_repository import WebhookLogRepository
 from apps.notification.models import WebhookSource
-from apps.bots.models import Bot, Trade
+from apps.bots.models import Bot, Trade, BotType
 
 logger = logging.getLogger('app')
 
@@ -43,7 +43,7 @@ def tradingview_webhook(request, payload: TradingViewWebhookSchema):
             )
             return 404, {"error": f"Symbol {symbol_name} not found in database"}
 
-        entry_datetime = datetime.fromtimestamp(payload.CheckDate / 1000, tz=timezone.utc)
+        entry_datetime = datetime.fromtimestamp(payload.CheckDate / 1000, tz=dt_timezone.utc)
         local_entry_datetime = entry_datetime.astimezone(timezone.get_current_timezone())
         timestamp_str = local_entry_datetime.strftime('%Y-%m-%d %H:%M:%S')
 
@@ -95,10 +95,30 @@ def tradingview_webhook(request, payload: TradingViewWebhookSchema):
                 logger.warning("Unable to convert value %s to Decimal", value)
                 return None
 
-        bot, _ = Bot.objects.get_or_create(
-            name=payload.botName,
-            symbol=symbol
+        # Xác định bot_type từ botName
+        # VD: "VNM - Ngắn hạn", "VNM Short", "short_term_bot", etc.
+        bot_name_lower = payload.botName.lower()
+        if 'ngắn' in bot_name_lower or 'short' in bot_name_lower:
+            bot_type = BotType.SHORT_TERM
+        elif 'trung' in bot_name_lower or 'medium' in bot_name_lower or 'mid' in bot_name_lower:
+            bot_type = BotType.MEDIUM_TERM
+        elif 'dài' in bot_name_lower or 'long' in bot_name_lower:
+            bot_type = BotType.LONG_TERM
+        else:
+            # Mặc định là ngắn hạn nếu không xác định được
+            bot_type = BotType.SHORT_TERM
+            logger.warning(f"Cannot determine bot_type from botName '{payload.botName}', defaulting to SHORT_TERM")
+
+        bot, created = Bot.objects.get_or_create(
+            symbol=symbol,
+            bot_type=bot_type,
+            defaults={'name': f'{symbol.name} - {bot_type.label}'}
         )
+
+        if not created:
+            # Cập nhật name nếu bot đã tồn tại
+            bot.name = f'{symbol.name} - {bot_type.label}'
+            bot.save(update_fields=['name'])
 
         trade = Trade.objects.create(
             bot=bot,

@@ -2,10 +2,23 @@ import uuid
 from django.db import models
 
 
+class BotType(models.TextChoices):
+    """Loại bot theo kỳ hạn"""
+    SHORT_TERM = 'short', 'Ngắn hạn'
+    MEDIUM_TERM = 'medium', 'Trung hạn'
+    LONG_TERM = 'long', 'Dài hạn'
+
+
 class Bot(models.Model):
     """Thông tin bot TradingView gắn với từng symbol"""
     id = models.BigAutoField(primary_key=True)
     name = models.CharField(max_length=100)
+    bot_type = models.CharField(
+        max_length=10,
+        choices=BotType.choices,
+        default=BotType.SHORT_TERM,
+        help_text='Loại bot: Ngắn hạn, Trung hạn, Dài hạn'
+    )
     symbol = models.ForeignKey(
         'stock.Symbol',
         on_delete=models.CASCADE,
@@ -14,14 +27,16 @@ class Bot(models.Model):
 
     class Meta:
         db_table = 'bots'
-        unique_together = [['name', 'symbol']]
+        unique_together = [['symbol', 'bot_type']]
         indexes = [
             models.Index(fields=['symbol']),
+            models.Index(fields=['bot_type']),
         ]
 
     def __str__(self):
         symbol_name = getattr(self.symbol, 'name', self.symbol_id)
-        return f"{self.name} ({symbol_name})"
+        bot_type_display = self.get_bot_type_display()
+        return f"{symbol_name} - {bot_type_display}"
 
 
 class Trade(models.Model):

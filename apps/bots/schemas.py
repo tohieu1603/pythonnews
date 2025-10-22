@@ -30,6 +30,8 @@ class BotSchema(Schema):
     """Schema for Bot response"""
     id: int
     name: str
+    bot_type: str
+    bot_type_display: Optional[str] = None
     symbol_id: int
     symbol_name: Optional[str] = None
 
@@ -43,3 +45,10 @@ class BotDetailSchema(BotSchema):
 
     class Config:
         from_attributes = True
+
+
+class SymbolBotsSchema(Schema):
+    """Schema for Symbol with its 3 bots"""
+    symbol_id: int
+    symbol_name: str
+    bots: list[BotSchema]
