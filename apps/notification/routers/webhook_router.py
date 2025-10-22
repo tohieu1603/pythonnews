@@ -95,29 +95,16 @@ def tradingview_webhook(request, payload: TradingViewWebhookSchema):
                 logger.warning("Unable to convert value %s to Decimal", value)
                 return None
 
-        # Xác định bot_type từ botName
-        # VD: "VNM - Ngắn hạn", "VNM Short", "short_term_bot", etc.
-        bot_name_lower = payload.botName.lower()
-        if 'ngắn' in bot_name_lower or 'short' in bot_name_lower:
-            bot_type = BotType.SHORT_TERM
-        elif 'trung' in bot_name_lower or 'medium' in bot_name_lower or 'mid' in bot_name_lower:
-            bot_type = BotType.MEDIUM_TERM
-        elif 'dài' in bot_name_lower or 'long' in bot_name_lower:
-            bot_type = BotType.LONG_TERM
-        else:
-            # Mặc định là ngắn hạn nếu không xác định được
-            bot_type = BotType.SHORT_TERM
-            logger.warning(f"Cannot determine bot_type from botName '{payload.botName}', defaulting to SHORT_TERM")
-
+        # Lấy bot_type trực tiếp từ payload (string)
         bot, created = Bot.objects.get_or_create(
             symbol=symbol,
-            bot_type=bot_type,
-            defaults={'name': f'{symbol.name} - {bot_type.label}'}
+            bot_type=payload.botType,
+            defaults={'name': payload.botName}
         )
 
-        if not created:
-            # Cập nhật name nếu bot đã tồn tại
-            bot.name = f'{symbol.name} - {bot_type.label}'
+        if not created and bot.name != payload.botName:
+            # Cập nhật name nếu thay đổi
+            bot.name = payload.botName
             bot.save(update_fields=['name'])
 
         trade = Trade.objects.create(

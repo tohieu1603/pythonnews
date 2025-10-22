@@ -119,6 +119,7 @@ class TradingViewWebhookSchema(Schema):
     TransId: int
     Action: str = Field(..., description="Open, Close, etc.")
     botName: str
+    botType: str = Field(..., description="short | medium | long")
     Symbol: str = Field(..., description="Mã chứng khoán")
     Price: float
     CheckDate: int = Field(..., description="Timestamp in milliseconds")
