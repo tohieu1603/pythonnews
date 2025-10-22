@@ -7,6 +7,7 @@ from apps.seapay.api import router as seapay_router
 from apps.logs.router import router as logs_router
 from apps.calendar.api import router as calendar_router
 from apps.notification.api import router as notification_router
+from apps.bots.api import router as bots_router
 api = NinjaAPI(title="Togogo Analysis API", version="1.0.0")
 
 # Routers
@@ -18,3 +19,4 @@ api.add_router("/settings/", setting_router, tags=["Settings"])
 api.add_router("/sepay/", seapay_router, tags=["Sepay Payment"])
 api.add_router("/logs/", logs_router, tags=["Logs"])
 api.add_router("/notifications/", notification_router, tags=["Notifications"])
+api.add_router("/", bots_router, tags=["Bots"])

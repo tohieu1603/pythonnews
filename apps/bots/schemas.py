@@ -1,0 +1,45 @@
+from ninja import Schema
+from datetime import datetime
+from typing import Optional
+from decimal import Decimal
+
+
+class TradeSchema(Schema):
+    """Schema for Trade response"""
+    id: str
+    trans_id: int
+    trade_type: str
+    direction: Optional[str] = None
+    price: Optional[Decimal] = None
+    entry_date: datetime
+    exit_price: Optional[Decimal] = None
+    stop_loss: Optional[Decimal] = None
+    take_profit: Optional[Decimal] = None
+    position_size: Optional[float] = None
+    profit: Optional[float] = None
+    max_duration: Optional[int] = None
+    win_loss_status: Optional[str] = None
+    action: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class BotSchema(Schema):
+    """Schema for Bot response"""
+    id: int
+    name: str
+    symbol_id: int
+    symbol_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class BotDetailSchema(BotSchema):
+    """Schema for Bot detail with trades"""
+    trades: list[TradeSchema] = []
+
+    class Config:
+        from_attributes = True
