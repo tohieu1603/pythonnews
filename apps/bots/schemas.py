@@ -35,6 +35,14 @@ class BotSchema(Schema):
     symbol_id: int
     symbol_name: Optional[str] = None
 
+    @staticmethod
+    def resolve_bot_type_display(obj):
+        return obj.get_bot_type_display()
+
+    @staticmethod
+    def resolve_symbol_name(obj):
+        return obj.symbol.name if obj.symbol else None
+
     class Config:
         from_attributes = True
 
@@ -42,6 +50,10 @@ class BotSchema(Schema):
 class BotDetailSchema(BotSchema):
     """Schema for Bot detail with trades"""
     trades: list[TradeSchema] = []
+
+    @staticmethod
+    def resolve_trades(obj):
+        return list(obj.trades.all().order_by('-entry_date'))
 
     class Config:
         from_attributes = True

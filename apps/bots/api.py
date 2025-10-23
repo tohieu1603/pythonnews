@@ -52,14 +52,7 @@ def list_bots(request: HttpRequest):
 
     # Filter bots based on user's symbol licenses
     accessible_bots = [
-        {
-            'id': bot.id,
-            'name': bot.name,
-            'bot_type': bot.bot_type,
-            'bot_type_display': bot.get_bot_type_display(),
-            'symbol_id': bot.symbol_id,
-            'symbol_name': bot.symbol.name if bot.symbol else None
-        }
+        bot
         for bot in all_bots
         if user_has_symbol_access(user, bot.symbol_id)
     ]
@@ -81,15 +74,7 @@ def get_bot(request: HttpRequest, bot_id: int):
     if not user_can_access_bot(user, bot):
         raise HttpError(403, f"Bạn cần mua mã '{bot.symbol.name}' để xem bot này")
 
-    return {
-        'id': bot.id,
-        'name': bot.name,
-        'bot_type': bot.bot_type,
-        'bot_type_display': bot.get_bot_type_display(),
-        'symbol_id': bot.symbol_id,
-        'symbol_name': bot.symbol.name if bot.symbol else None,
-        'trades': list(bot.trades.all().order_by('-entry_date'))
-    }
+    return bot
 
 
 @router.get("/bots/{bot_id}/trades", response=List[TradeSchema], tags=["Bots"], auth=JWTAuth())
@@ -105,7 +90,6 @@ def list_bot_trades(request: HttpRequest, bot_id: int):
 
     trades = Trade.objects.filter(bot=bot).order_by('-entry_date')
     return list(trades)
-
 
 @router.get("/trades", response=List[TradeSchema], tags=["Bots"], auth=JWTAuth())
 def list_all_trades(request: HttpRequest, bot_id: int = None, symbol_id: int = None):
