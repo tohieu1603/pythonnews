@@ -28,18 +28,7 @@ def get_symbol_bots(request: HttpRequest, symbol_id: int):
     return {
         'symbol_id': symbol.id,
         'symbol_name': symbol.name,
-        'bots': [
-            {
-                'id': bot.id,
-                'name': bot.name,
-                'bot_type': bot.bot_type,
-                'bot_type_display': bot.get_bot_type_display(),
-                'symbol_id': bot.symbol_id,
-                'symbol_name': bot.symbol.name if bot.symbol else None,
-                'trades': list(bot.trades.all().order_by('-entry_date'))
-            }
-            for bot in bots
-        ]
+        'bots': bots
     }
 
 

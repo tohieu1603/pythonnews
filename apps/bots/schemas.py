@@ -22,19 +22,22 @@ class TradeSchema(Schema):
     action: str
     created_at: datetime
 
+    @staticmethod
+    def resolve_id(obj):
+        return str(obj.id)
+
     class Config:
         from_attributes = True
 
 
 class BotSchema(Schema):
-    """Schema for Bot response"""
+    """Schema for Bot response (basic info without trades)"""
     id: int
     name: str
     bot_type: str
     bot_type_display: Optional[str] = None
     symbol_id: int
     symbol_name: Optional[str] = None
-    trades: list['TradeSchema'] = []
 
     @staticmethod
     def resolve_bot_type_display(obj):
@@ -43,6 +46,32 @@ class BotSchema(Schema):
     @staticmethod
     def resolve_symbol_name(obj):
         return obj.symbol.name if obj.symbol else None
+
+    class Config:
+        from_attributes = True
+
+
+class BotWithTradesSchema(Schema):
+    """Schema for Bot response with trades"""
+    id: int
+    name: str
+    bot_type: str
+    bot_type_display: Optional[str] = None
+    symbol_id: int
+    symbol_name: Optional[str] = None
+    trades: list[TradeSchema] = []
+
+    @staticmethod
+    def resolve_bot_type_display(obj):
+        return obj.get_bot_type_display()
+
+    @staticmethod
+    def resolve_symbol_name(obj):
+        return obj.symbol.name if obj.symbol else None
+
+    @staticmethod
+    def resolve_trades(obj):
+        return list(obj.trades.all().order_by('-entry_date'))
 
     class Config:
         from_attributes = True
@@ -61,7 +90,7 @@ class BotDetailSchema(BotSchema):
 
 
 class SymbolBotsSchema(Schema):
-    """Schema for Symbol with its 3 bots"""
+    """Schema for Symbol with its 3 bots and their trades"""
     symbol_id: int
     symbol_name: str
-    bots: list[BotSchema]
+    bots: list[BotWithTradesSchema]
