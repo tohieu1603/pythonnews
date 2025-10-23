@@ -34,6 +34,7 @@ class BotSchema(Schema):
     bot_type_display: Optional[str] = None
     symbol_id: int
     symbol_name: Optional[str] = None
+    trades: list['TradeSchema'] = []
 
     @staticmethod
     def resolve_bot_type_display(obj):

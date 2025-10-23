@@ -15,7 +15,7 @@ router = Router()
 
 @router.get("/symbols/{symbol_id}/bots", response=SymbolBotsSchema, tags=["Bots"], auth=JWTAuth())
 def get_symbol_bots(request: HttpRequest, symbol_id: int):
-    """Get 3 bots (Ngắn hạn, Trung hạn, Dài hạn) for a symbol - requires purchase"""
+    """Get 3 bots (Ngắn hạn, Trung hạn, Dài hạn) for a symbol with trades - requires purchase"""
     user = request.auth
 
     # Check if user has purchased this symbol
@@ -23,7 +23,7 @@ def get_symbol_bots(request: HttpRequest, symbol_id: int):
         raise HttpError(403, "Bạn cần mua mã này để xem bot")
 
     symbol = get_object_or_404(Symbol, id=symbol_id)
-    bots = Bot.objects.filter(symbol=symbol).select_related('symbol').order_by('bot_type')
+    bots = Bot.objects.filter(symbol=symbol).select_related('symbol').prefetch_related('trades').order_by('bot_type')
 
     return {
         'symbol_id': symbol.id,
@@ -35,7 +35,8 @@ def get_symbol_bots(request: HttpRequest, symbol_id: int):
                 'bot_type': bot.bot_type,
                 'bot_type_display': bot.get_bot_type_display(),
                 'symbol_id': bot.symbol_id,
-                'symbol_name': bot.symbol.name if bot.symbol else None
+                'symbol_name': bot.symbol.name if bot.symbol else None,
+                'trades': list(bot.trades.all().order_by('-entry_date'))
             }
             for bot in bots
         ]
